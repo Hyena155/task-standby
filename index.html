@@ -261,7 +261,7 @@
   <h1>📋 タスク</h1>
   <div class="header-right">
     <span class="count-badge" id="countBadge"></span>
-    <button class="icon-btn" id="openSettings" title="設定">⚙️</button>
+    <button class="icon-btn" id="openSettings" title="設定" style="display:none">⚙️</button>
   </div>
 </header>
 
@@ -573,14 +573,9 @@ ${memo}
 - category判定: 業務・取引先・MTG → 仕事 / 家族・趣味・健康 → 個人 / それ以外 → その他
 - JSONのみ返す。説明文不要。`;
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://task-standby-proxy.takahiro-kishi.workers.dev', {
       method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-        'anthropic-dangerous-direct-browser-calls': 'true'
-      },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1024,
