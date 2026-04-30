@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="タスク">
+  <title>タスク</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --high: #ef4444;
+      --mid: #f97316;
+      --low: #3b82f6;
+      --bg: #f2f2f7;
+      --card: #ffffff;
+      --text: #1c1c1e;
+      --sub: #6e6e73;
+      --border: #e5e5ea;
+      --accent: #007aff;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    header {
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: calc(env(safe-area-inset-top) + 12px) 16px 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 22px; font-weight: 700; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .count-badge { font-size: 13px; color: var(--sub); }
+    .icon-btn {
+      background: none; border: none; font-size: 20px;
+      cursor: pointer; color: var(--sub); padding: 2px;
+    }
+
+    .filter-bar {
+      display: flex; gap: 8px; padding: 12px 16px;
+      overflow-x: auto; scrollbar-width: none;
+    }
+    .filter-bar::-webkit-scrollbar { display: none; }
+    .chip {
+      flex-shrink: 0; border: none; background: var(--card);
+      color: var(--sub); font-size: 13px; font-weight: 500;
+      padding: 6px 14px; border-radius: 20px; cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: all 0.15s;
+    }
+    .chip.active { background: var(--accent); color: #fff; }
+
+    .task-list { padding: 0 16px 120px; display: flex; flex-direction: column; gap: 8px; }
+
+    .section-label {
+      font-size: 12px; font-weight: 600; color: var(--sub);
+      text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 4px 4px;
+    }
+
+    .task-card {
+      background: var(--card); border-radius: 12px; padding: 14px;
+      display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06); transition: opacity 0.2s;
+    }
+    .task-card.done { opacity: 0.45; }
+
+    .check-btn {
+      width: 26px; height: 26px; border-radius: 50%;
+      border: 2px solid var(--border); background: none;
+      flex-shrink: 0; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; transition: all 0.15s;
+    }
+    .check-btn.checked { background: #34c759; border-color: #34c759; }
+    .check-btn.checked::after {
+      content: ''; width: 8px; height: 5px;
+      border-left: 2px solid #fff; border-bottom: 2px solid #fff;
+      transform: rotate(-45deg) translateY(-1px); display: block;
+    }
+
+    .priority-bar { width: 4px; height: 36px; border-radius: 2px; flex-shrink: 0; }
+    .task-info { flex: 1; min-width: 0; }
+    .task-title { font-size: 15px; font-weight: 500; line-height: 1.3; word-break: break-all; }
+    .task-card.done .task-title { text-decoration: line-through; color: var(--sub); }
+    .task-meta { font-size: 12px; color: var(--sub); margin-top: 3px; }
+    .delete-btn {
+      background: none; border: none; color: var(--sub);
+      font-size: 18px; cursor: pointer; padding: 4px; opacity: 0.5; line-height: 1;
+    }
+
+    .empty { text-align: center; padding: 60px 20px; color: var(--sub); }
+    .empty .icon { font-size: 48px; margin-bottom: 12px; }
+    .empty p { font-size: 15px; }
+
+    /* FABグループ */
+    .fab-group {
+      position: fixed;
+      bottom: calc(24px + env(safe-area-inset-bottom));
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 12px;
+      z-index: 200;
+    }
+    .fab {
+      width: 56px; height: 56px; background: var(--accent); color: #fff;
+      border: none; border-radius: 50%; font-size: 28px; cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,122,255,0.45);
+      display: flex; align-items: center; justify-content: center; transition: transform 0.15s;
+    }
+    .fab:active { transform: scale(0.93); }
+    .fab-memo {
+      width: 48px; height: 48px; background: #fff; color: var(--accent);
+      border: 2px solid var(--accent); border-radius: 50%; font-size: 22px; cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+      display: flex; align-items: center; justify-content: center; transition: transform 0.15s;
+    }
+    .fab-memo:active { transform: scale(0.93); }
+    .fab-label {
+      font-size: 12px; font-weight: 600; color: var(--sub);
+      background: rgba(255,255,255,0.9); padding: 3px 8px;
+      border-radius: 8px; white-space: nowrap;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .fab-row { display: flex; align-items: center; gap: 8px; }
+
+    /* モーダル共通 */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); z-index: 300; align-items: flex-end;
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      background: var(--card); width: 100%;
+      border-radius: 20px 20px 0 0;
+      padding: 20px 20px calc(32px + env(safe-area-inset-bottom));
+      max-height: 92vh; overflow-y: auto;
+    }
+    .modal-handle {
+      width: 36px; height: 4px; background: var(--border);
+      border-radius: 2px; margin: 0 auto 20px;
+    }
+    .modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+
+    .field { margin-bottom: 16px; }
+    .field label {
+      font-size: 13px; font-weight: 600; color: var(--sub);
+      display: block; margin-bottom: 6px;
+    }
+    .field input[type="text"], .field textarea {
+      width: 100%; padding: 12px 14px;
+      border: 1.5px solid var(--border); border-radius: 10px;
+      font-size: 16px; background: var(--bg); color: var(--text); outline: none;
+      font-family: inherit;
+    }
+    .field input[type="text"]:focus,
+    .field textarea:focus { border-color: var(--accent); }
+    .field textarea { resize: none; line-height: 1.6; }
+
+    .seg-group { display: flex; gap: 8px; }
+    .seg {
+      flex: 1; padding: 9px 4px; border: 1.5px solid var(--border);
+      border-radius: 10px; background: var(--bg); font-size: 13px;
+      font-weight: 500; cursor: pointer; text-align: center; color: var(--sub); transition: all 0.15s;
+    }
+    .seg.selected-high   { background: #fef2f2; border-color: var(--high); color: var(--high); }
+    .seg.selected-mid    { background: #fff7ed; border-color: var(--mid); color: var(--mid); }
+    .seg.selected-low    { background: #eff6ff; border-color: var(--low); color: var(--low); }
+    .seg.selected-work   { background: #f0fdf4; border-color: #22c55e; color: #16a34a; }
+    .seg.selected-personal { background: #fdf4ff; border-color: #a855f7; color: #9333ea; }
+    .seg.selected-other  { background: #f8fafc; border-color: #64748b; color: #475569; }
+
+    .add-btn {
+      width: 100%; padding: 14px; background: var(--accent); color: #fff;
+      border: none; border-radius: 12px; font-size: 16px; font-weight: 600;
+      cursor: pointer; margin-top: 8px;
+    }
+    .add-btn:disabled { opacity: 0.4; }
+
+    /* メモモーダル専用 */
+    .memo-hint {
+      font-size: 13px; color: var(--sub); background: #f8f9fa;
+      border-radius: 10px; padding: 10px 12px; margin-bottom: 16px; line-height: 1.6;
+    }
+    .memo-hint strong { color: var(--text); }
+
+    .parse-btn {
+      width: 100%; padding: 14px; background: #5856d6; color: #fff;
+      border: none; border-radius: 12px; font-size: 16px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .parse-btn:disabled { opacity: 0.4; }
+
+    /* ローディング */
+    .spinner {
+      width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* プレビューカード */
+    .preview-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .preview-card {
+      background: var(--bg); border-radius: 10px; padding: 12px;
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .preview-card .priority-bar { height: 100%; min-height: 32px; }
+    .preview-card-info { flex: 1; }
+    .preview-card-title { font-size: 14px; font-weight: 500; }
+    .preview-card-meta { font-size: 12px; color: var(--sub); margin-top: 3px; }
+    .preview-remove {
+      background: none; border: none; color: var(--sub);
+      font-size: 16px; cursor: pointer; opacity: 0.6; padding: 2px;
+    }
+
+    .confirm-btn {
+      width: 100%; padding: 14px; background: #34c759; color: #fff;
+      border: none; border-radius: 12px; font-size: 16px; font-weight: 600;
+      cursor: pointer;
+    }
+
+    .error-msg {
+      font-size: 13px; color: var(--high); background: #fef2f2;
+      border-radius: 10px; padding: 10px 12px; margin-top: 12px;
+    }
+
+    /* 設定モーダル */
+    .settings-field { margin-bottom: 20px; }
+    .settings-field label {
+      font-size: 13px; font-weight: 600; color: var(--sub); display: block; margin-bottom: 6px;
+    }
+    .settings-field input {
+      width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+      border-radius: 10px; font-size: 14px; background: var(--bg); color: var(--text);
+      outline: none; font-family: monospace;
+    }
+    .settings-field input:focus { border-color: var(--accent); }
+    .settings-hint { font-size: 12px; color: var(--sub); margin-top: 6px; line-height: 1.5; }
+    .save-btn {
+      width: 100%; padding: 14px; background: var(--accent); color: #fff;
+      border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📋 タスク</h1>
+  <div class="header-right">
+    <span class="count-badge" id="countBadge"></span>
+    <button class="icon-btn" id="openSettings" title="設定">⚙️</button>
+  </div>
+</header>
+
+<div class="filter-bar" id="filterBar">
+  <button class="chip active" data-filter="all">すべて</button>
+  <button class="chip" data-filter="仕事">💼 仕事</button>
+  <button class="chip" data-filter="個人">👤 個人</button>
+  <button class="chip" data-filter="その他">🏷 その他</button>
+  <button class="chip" data-filter="done">✅ 完了済み</button>
+</div>
+
+<div class="task-list" id="taskList"></div>
+
+<div class="fab-group">
+  <div class="fab-row">
+    <span class="fab-label">メモから整理</span>
+    <button class="fab-memo" id="openMemo">✍️</button>
+  </div>
+  <button class="fab" id="openModal">＋</button>
+</div>
+
+<!-- 手動追加モーダル -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>タスクを追加</h2>
+    <div class="field">
+      <label>タスク名</label>
+      <input type="text" id="titleInput" placeholder="例: 企画書を提出する">
+    </div>
+    <div class="field">
+      <label>優先度</label>
+      <div class="seg-group" id="priorityGroup">
+        <button class="seg selected-high" data-val="高">🔴 高</button>
+        <button class="seg" data-val="中">🟠 中</button>
+        <button class="seg" data-val="低">🔵 低</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>カテゴリ</label>
+      <div class="seg-group" id="categoryGroup">
+        <button class="seg selected-work" data-val="仕事">💼 仕事</button>
+        <button class="seg" data-val="個人">👤 個人</button>
+        <button class="seg" data-val="その他">🏷 その他</button>
+      </div>
+    </div>
+    <button class="add-btn" id="addBtn">追加する</button>
+  </div>
+</div>
+
+<!-- メモ整理モーダル -->
+<div class="overlay" id="memoOverlay">
+  <div class="modal" id="memoModal">
+    <div class="modal-handle"></div>
+    <h2>✍️ メモから整理</h2>
+
+    <div id="memoInputSection">
+      <div class="memo-hint">
+        思いついたことを<strong>そのまま</strong>書いてください。<br>
+        AIが優先度・カテゴリを判断してタスクに整理します。
+      </div>
+      <div class="field">
+        <textarea id="memoInput" rows="6"
+          placeholder="例:&#10;明日までに企画書提出、山田さんに電話折り返す&#10;来週のMTG資料作る、なるべく早めに&#10;子供の参観日の予定確認、ジム行く"></textarea>
+      </div>
+      <button class="parse-btn" id="parseBtn">
+        <span id="parseBtnText">✨ AIで整理する</span>
+      </button>
+      <div class="error-msg" id="errorMsg" style="display:none"></div>
+    </div>
+
+    <div id="memoPreviewSection" style="display:none">
+      <p style="font-size:13px;color:var(--sub);margin-bottom:12px;">整理されたタスクを確認してください。不要なものは × で削除できます。</p>
+      <div class="preview-list" id="previewList"></div>
+      <button class="confirm-btn" id="confirmBtn">すべて追加する</button>
+      <button style="width:100%;padding:12px;background:none;border:none;color:var(--sub);font-size:14px;cursor:pointer;margin-top:8px;" id="backBtn">← 書き直す</button>
+    </div>
+  </div>
+</div>
+
+<!-- 設定モーダル -->
+<div class="overlay" id="settingsOverlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>⚙️ 設定</h2>
+    <div class="settings-field">
+      <label>Claude API キー</label>
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
+      <p class="settings-hint">
+        メモ整理機能に使用します。<br>
+        取得: <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API Keys<br>
+        このデバイスのみに保存されます。
+      </p>
+    </div>
+    <button class="save-btn" id="saveSettings">保存する</button>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'tasks_v1';
+  const API_KEY_STORAGE = 'claude_api_key';
+
+  const priorityOrder = { '高': 0, '中': 1, '低': 2 };
+  const priorityColor = { '高': '#ef4444', '中': '#f97316', '低': '#3b82f6' };
+  const categoryIcon = { '仕事': '💼', '個人': '👤', 'その他': '🏷' };
+
+  let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  let currentFilter = 'all';
+  let selectedPriority = '高';
+  let selectedCategory = '仕事';
+  let previewTasks = [];
+
+  function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
+
+  function render() {
+    const list = document.getElementById('taskList');
+    const active = tasks.filter(t => !t.done);
+    const done = tasks.filter(t => t.done);
+
+    document.getElementById('countBadge').textContent =
+      active.length ? `残り ${active.length} 件` : 'すべて完了！';
+
+    let filtered;
+    if (currentFilter === 'done') filtered = done;
+    else if (currentFilter === 'all') filtered = active;
+    else filtered = active.filter(t => t.category === currentFilter);
+
+    if (filtered.length === 0) {
+      list.innerHTML = `<div class="empty"><div class="icon">${currentFilter === 'done' ? '📭' : '🎉'}</div><p>${currentFilter === 'done' ? '完了済みタスクなし' : 'タスクがありません'}</p></div>`;
+      return;
+    }
+
+    if (currentFilter !== 'done') {
+      const groups = { '高': [], '中': [], '低': [] };
+      filtered.forEach(t => groups[t.priority].push(t));
+      const labels = { '高': '🔴 高優先度', '中': '🟠 中優先度', '低': '🔵 低優先度' };
+      list.innerHTML = ['高','中','低'].filter(p => groups[p].length > 0)
+        .map(p => `<div class="section-label">${labels[p]}</div>${groups[p].map(t => taskHTML(t)).join('')}`).join('');
+    } else {
+      list.innerHTML = filtered.map(t => taskHTML(t)).join('');
+    }
+
+    list.querySelectorAll('.check-btn').forEach(btn => btn.addEventListener('click', () => toggle(btn.dataset.id)));
+    list.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', () => remove(btn.dataset.id)));
+  }
+
+  function taskHTML(t) {
+    return `<div class="task-card ${t.done ? 'done' : ''}">
+      <button class="check-btn ${t.done ? 'checked' : ''}" data-id="${t.id}"></button>
+      <div class="priority-bar" style="background:${priorityColor[t.priority]}"></div>
+      <div class="task-info">
+        <div class="task-title">${escHtml(t.title)}</div>
+        <div class="task-meta">${categoryIcon[t.category]} ${t.category}</div>
+      </div>
+      <button class="delete-btn" data-id="${t.id}">×</button>
+    </div>`;
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function toggle(id) {
+    const t = tasks.find(t => t.id === id);
+    if (t) { t.done = !t.done; save(); render(); }
+  }
+
+  function remove(id) {
+    tasks = tasks.filter(t => t.id !== id);
+    save(); render();
+  }
+
+  // フィルター
+  document.getElementById('filterBar').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    currentFilter = chip.dataset.filter;
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    render();
+  });
+
+  // モーダル開閉
+  function openOverlay(id) { document.getElementById(id).classList.add('open'); }
+  function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
+
+  document.getElementById('openModal').addEventListener('click', () => openOverlay('overlay'));
+  document.getElementById('overlay').addEventListener('click', e => { if (e.target.id === 'overlay') closeOverlay('overlay'); });
+
+  document.getElementById('openMemo').addEventListener('click', () => {
+    resetMemoModal();
+    openOverlay('memoOverlay');
+  });
+  document.getElementById('memoOverlay').addEventListener('click', e => { if (e.target.id === 'memoOverlay') closeOverlay('memoOverlay'); });
+
+  document.getElementById('openSettings').addEventListener('click', () => {
+    document.getElementById('apiKeyInput').value = localStorage.getItem(API_KEY_STORAGE) || '';
+    openOverlay('settingsOverlay');
+  });
+  document.getElementById('settingsOverlay').addEventListener('click', e => { if (e.target.id === 'settingsOverlay') closeOverlay('settingsOverlay'); });
+
+  // 設定保存
+  document.getElementById('saveSettings').addEventListener('click', () => {
+    const key = document.getElementById('apiKeyInput').value.trim();
+    if (key) localStorage.setItem(API_KEY_STORAGE, key);
+    else localStorage.removeItem(API_KEY_STORAGE);
+    closeOverlay('settingsOverlay');
+  });
+
+  // 手動追加
+  const titleInput = document.getElementById('titleInput');
+  const addBtn = document.getElementById('addBtn');
+  titleInput.addEventListener('input', () => { addBtn.disabled = titleInput.value.trim() === ''; });
+  addBtn.disabled = true;
+
+  addBtn.addEventListener('click', () => {
+    const title = titleInput.value.trim();
+    if (!title) return;
+    tasks.push({ id: Date.now().toString(), title, priority: selectedPriority, category: selectedCategory, done: false, createdAt: new Date().toISOString() });
+    save(); render();
+    currentFilter = 'all';
+    document.querySelectorAll('.chip').forEach((c,i) => c.classList.toggle('active', i === 0));
+    closeOverlay('overlay');
+    titleInput.value = '';
+    addBtn.disabled = true;
+  });
+
+  titleInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !addBtn.disabled) addBtn.click(); });
+
+  // セグメント選択
+  function setupSegGroup(groupId, onSelect, defaultClass) {
+    document.getElementById(groupId).addEventListener('click', e => {
+      const btn = e.target.closest('.seg');
+      if (!btn) return;
+      onSelect(btn.dataset.val);
+    });
+  }
+
+  setupSegGroup('priorityGroup', val => {
+    selectedPriority = val;
+    document.querySelectorAll('#priorityGroup .seg').forEach(b => {
+      b.className = 'seg' + (b.dataset.val === val ? (' selected-' + (val === '高' ? 'high' : val === '中' ? 'mid' : 'low')) : '');
+    });
+  });
+
+  setupSegGroup('categoryGroup', val => {
+    selectedCategory = val;
+    document.querySelectorAll('#categoryGroup .seg').forEach(b => {
+      b.className = 'seg' + (b.dataset.val === val ? (' selected-' + (val === '仕事' ? 'work' : val === '個人' ? 'personal' : 'other')) : '');
+    });
+  });
+
+  // ========== メモ整理（Claude API） ==========
+
+  function resetMemoModal() {
+    document.getElementById('memoInput').value = '';
+    document.getElementById('errorMsg').style.display = 'none';
+    document.getElementById('memoInputSection').style.display = 'block';
+    document.getElementById('memoPreviewSection').style.display = 'none';
+    setParseBtnLoading(false);
+  }
+
+  function setParseBtnLoading(loading) {
+    const btn = document.getElementById('parseBtn');
+    const txt = document.getElementById('parseBtnText');
+    btn.disabled = loading;
+    txt.innerHTML = loading
+      ? '<div class="spinner"></div>整理中...'
+      : '✨ AIで整理する';
+  }
+
+  document.getElementById('parseBtn').addEventListener('click', async () => {
+    const memo = document.getElementById('memoInput').value.trim();
+    if (!memo) return;
+
+    const apiKey = localStorage.getItem(API_KEY_STORAGE);
+    if (!apiKey) {
+      showError('APIキーが設定されていません。右上の ⚙️ から設定してください。');
+      return;
+    }
+
+    setParseBtnLoading(true);
+    document.getElementById('errorMsg').style.display = 'none';
+
+    try {
+      const result = await parseWithClaude(memo, apiKey);
+      previewTasks = result.map((t, i) => ({ ...t, _id: `preview_${i}` }));
+      renderPreview();
+      document.getElementById('memoInputSection').style.display = 'none';
+      document.getElementById('memoPreviewSection').style.display = 'block';
+    } catch (e) {
+      showError(e.message);
+    } finally {
+      setParseBtnLoading(false);
+    }
+  });
+
+  async function parseWithClaude(memo, apiKey) {
+    const prompt = `以下のメモを読んで、含まれるタスクを抽出・整理してください。
+
+【メモ】
+${memo}
+
+【出力ルール】
+- 各タスクをJSON配列で返す
+- 各要素: {"title": "タスク名", "priority": "高|中|低", "category": "仕事|個人|その他"}
+- titleは自然な日本語の動詞句（例: 「企画書を提出する」）
+- priority判定: 緊急・今日・締切 → 高 / 来週・なるべく → 中 / いつか・できれば → 低
+- category判定: 業務・取引先・MTG → 仕事 / 家族・趣味・健康 → 個人 / それ以外 → その他
+- JSONのみ返す。説明文不要。`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-calls': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `APIエラー (${res.status})`);
+    }
+
+    const data = await res.json();
+    const text = data.content[0].text.trim();
+    const jsonStr = text.match(/\[[\s\S]*\]/)?.[0];
+    if (!jsonStr) throw new Error('AIの応答を解析できませんでした。もう一度試してください。');
+
+    const parsed = JSON.parse(jsonStr);
+    return parsed.filter(t => t.title && ['高','中','低'].includes(t.priority) && ['仕事','個人','その他'].includes(t.category));
+  }
+
+  function renderPreview() {
+    const list = document.getElementById('previewList');
+    list.innerHTML = previewTasks.map(t => `
+      <div class="preview-card" data-id="${t._id}">
+        <div class="priority-bar" style="background:${priorityColor[t.priority]}"></div>
+        <div class="preview-card-info">
+          <div class="preview-card-title">${escHtml(t.title)}</div>
+          <div class="preview-card-meta">${priorityLabel(t.priority)} · ${categoryIcon[t.category]} ${t.category}</div>
+        </div>
+        <button class="preview-remove" data-id="${t._id}">×</button>
+      </div>`).join('');
+
+    list.querySelectorAll('.preview-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        previewTasks = previewTasks.filter(t => t._id !== btn.dataset.id);
+        renderPreview();
+      });
+    });
+
+    document.getElementById('confirmBtn').textContent = `${previewTasks.length}件をすべて追加する`;
+  }
+
+  function priorityLabel(p) {
+    return p === '高' ? '🔴 高' : p === '中' ? '🟠 中' : '🔵 低';
+  }
+
+  document.getElementById('confirmBtn').addEventListener('click', () => {
+    previewTasks.forEach(t => {
+      tasks.push({ id: Date.now().toString() + Math.random(), title: t.title, priority: t.priority, category: t.category, done: false, createdAt: new Date().toISOString() });
+    });
+    save(); render();
+    currentFilter = 'all';
+    document.querySelectorAll('.chip').forEach((c,i) => c.classList.toggle('active', i === 0));
+    closeOverlay('memoOverlay');
+  });
+
+  document.getElementById('backBtn').addEventListener('click', () => {
+    document.getElementById('memoInputSection').style.display = 'block';
+    document.getElementById('memoPreviewSection').style.display = 'none';
+  });
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  render();
+</script>
+</body>
+</html>
