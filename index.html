@@ -539,17 +539,11 @@
     const memo = document.getElementById('memoInput').value.trim();
     if (!memo) return;
 
-    const apiKey = localStorage.getItem(API_KEY_STORAGE);
-    if (!apiKey) {
-      showError('APIキーが設定されていません。右上の ⚙️ から設定してください。');
-      return;
-    }
-
     setParseBtnLoading(true);
     document.getElementById('errorMsg').style.display = 'none';
 
     try {
-      const result = await parseWithClaude(memo, apiKey);
+      const result = await parseWithClaude(memo);
       previewTasks = result.map((t, i) => ({ ...t, _id: `preview_${i}` }));
       renderPreview();
       document.getElementById('memoInputSection').style.display = 'none';
@@ -561,7 +555,7 @@
     }
   });
 
-  async function parseWithClaude(memo, apiKey) {
+  async function parseWithClaude(memo) {
     const prompt = `以下のメモを読んで、含まれるタスクを抽出・整理してください。
 
 【メモ】
