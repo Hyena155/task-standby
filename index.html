@@ -363,20 +363,36 @@
 </div>
 
 <script>
-  const STORAGE_KEY = 'tasks_v1';
   const API_KEY_STORAGE = 'claude_api_key';
+  const WORKER = 'https://task-standby-proxy.takahiro-kishi.workers.dev';
 
   const priorityOrder = { '高': 0, '中': 1, '低': 2 };
   const priorityColor = { '高': '#ef4444', '中': '#f97316', '低': '#3b82f6' };
   const categoryIcon = { '仕事': '💼', '個人': '👤', 'その他': '🏷' };
 
-  let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  let tasks = [];
   let currentFilter = 'all';
   let selectedPriority = '高';
   let selectedCategory = '仕事';
   let previewTasks = [];
 
-  function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
+  async function save() {
+    await fetch(`${WORKER}/tasks`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(tasks),
+    }).catch(() => {});
+  }
+
+  async function loadTasks() {
+    try {
+      const res = await fetch(`${WORKER}/tasks`);
+      tasks = await res.json();
+    } catch {
+      tasks = [];
+    }
+    render();
+  }
 
   function render() {
     const list = document.getElementById('taskList');
@@ -569,7 +585,7 @@ ${memo}
 - category判定: 業務・取引先・MTG → 仕事 / 家族・趣味・健康 → 個人 / それ以外 → その他
 - JSONのみ返す。説明文不要。`;
 
-    const res = await fetch('https://task-standby-proxy.takahiro-kishi.workers.dev', {
+    const res = await fetch(`${WORKER}/parse`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -640,7 +656,7 @@ ${memo}
     el.style.display = 'block';
   }
 
-  render();
+  loadTasks();
 
   // Service Worker 登録
   if ('serviceWorker' in navigator) {
